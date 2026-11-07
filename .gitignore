@@ -1,0 +1,26 @@
+# Rust
+/src-tauri/target/
+/src-tauri/gen/
+/src-tauri/binaries/
+
+# Node
+/ui/node_modules/
+/ui/dist/
+/ui/.vite/
+
+# Go
+/sidecar/ha-panel-sidecar
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Editors
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Local configuration
+*.local
+.env
