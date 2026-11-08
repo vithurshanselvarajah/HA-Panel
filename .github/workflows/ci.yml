@@ -33,7 +33,7 @@ jobs:
         with:
           components: clippy, rustfmt
 
-      - uses: Swatinem/rust-cache@2201cc584a476d1b508be977bbe4b7d1c7a52e9c
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
 
       - name: Check the formatting
         run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
