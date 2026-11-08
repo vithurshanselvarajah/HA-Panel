@@ -10,14 +10,18 @@
 name="ha-panel"
 description="Home Assistant kiosk"
 
-command="/usr/lib/ha-panel/ha-panel"
+command="/usr/bin/ha-panel"
 command_args=""
 command_user="ha-panel:ha-panel"
 command_background="yes"
 pidfile="/run/${RC_SVCNAME}.pid"
 
-output_log="/var/log/ha-panel.log"
-error_log="/var/log/ha-panel.log"
+# The app keeps its own log in memory and only writes it out when
+# something fails. OpenRC's own logging goes to syslog, which is what
+# the device's log setup handles. Nothing here writes to a file on the
+# device's storage.
+output_logger="logger -t ha-panel"
+error_logger="logger -t ha-panel -p daemon.err"
 
 depend() {
 	need localmount
@@ -30,6 +34,7 @@ depend() {
 start_pre() {
 	checkpath --directory --mode 0755 --owner "$command_user" /run/ha-panel
 	checkpath --directory --mode 0750 --owner "$command_user" /var/lib/ha-panel
+	checkpath --directory --mode 0750 --owner "$command_user" /var/cache/ha-panel
 }
 
 # The compositor is optional. Set `ha_panel_compositor=cage` in

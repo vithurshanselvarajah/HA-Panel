@@ -23,10 +23,18 @@ jobs:
         with:
           persist-credentials: false
 
+      # cargo-audit is built from source rather than taken from the
+      # `rustsec/audit-check` action: that action is a Node 20 wrapper and
+      # Node 20 is deprecated on the runner. Building the tool from the
+      # current stable toolchain also means it is never older than the
+      # advisories it is meant to understand.
+      - uses: dtolnay/rust-toolchain@stable
+
       - name: Audit the Rust crates
-        uses: rustsec/audit-check@v2
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          cargo install cargo-audit --locked
+          cargo audit --file src-tauri/Cargo.lock
 
       - name: Audit the frontend
         run: |
@@ -103,39 +111,42 @@ jobs:
       - name: Build pinned vulnerability scanner
         run: docker build --tag ha-panel-trivy --file ci/Dockerfile.trivy ci
 
-      - name: Scan the release binary
+      # The scan is of the binaries that ship, not of the source tree.
+      #
+      # A scan of the tree reports every advisory in every module the lock
+      # file mentions, whether or not the code is in the binary — the Go
+      # standard library alone is enough to produce a list of findings that
+      # no device will ever hit. Scanning the artefacts answers the
+      # question that matters: is the thing a device runs vulnerable?
+      - name: Collect the artefacts
         run: |
-          docker run --rm -v "$PWD:/src:ro" ha-panel-trivy fs \
-            --ignorefile /src/ci/.trivyignore \
+          mkdir -p scan-root/usr/bin
+          cp src-tauri/target/release/ha-panel scan-root/usr/bin/
+          cp src-tauri/binaries/ha-panel-sidecar-* scan-root/usr/bin/
+
+      - name: Scan the release binaries
+        run: |
+          docker run --rm -v "$PWD/scan-root:/scan:ro" ha-panel-trivy rootfs \
             --scanners vuln \
             --severity HIGH,CRITICAL \
             --ignore-unfixed \
             --exit-code 1 \
-            --skip-dirs /src/.git \
-            --skip-dirs /src/ui/node_modules \
-            --skip-dirs /src/src-tauri/target/debug \
-            --skip-dirs /src/sidecar/third_party \
-            /src
+            /scan
 
       - name: Scan again for SARIF
         if: always()
         run: |
-          docker run --rm -v "$PWD:/src:ro" ha-panel-trivy fs \
-            --ignorefile /src/ci/.trivyignore \
+          docker run --rm -v "$PWD/scan-root:/scan:ro" ha-panel-trivy rootfs \
             --scanners vuln \
             --severity MEDIUM,HIGH,CRITICAL \
             --format sarif \
-            --output /src/trivy-results.sarif \
-            --skip-dirs /src/.git \
-            --skip-dirs /src/ui/node_modules \
-            --skip-dirs /src/src-tauri/target/debug \
-            --skip-dirs /src/sidecar/third_party \
-            /src
+            --output /scan/trivy-results.sarif \
+            /scan
 
       - name: Upload results to code scanning
         if: always()
         continue-on-error: true
         uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: trivy-results.sarif
+          sarif_file: scan-root/trivy-results.sarif
           category: trivy-package

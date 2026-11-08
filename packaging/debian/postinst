@@ -11,11 +11,13 @@ if ! getent passwd ha-panel >/dev/null; then
 fi
 
 # The configuration directory holds a file the kiosk user owns, so that it
-# can save its own settings. The secrets file is separate and is only
-# readable by the kiosk user.
+# can save its own settings. The directory itself is group-writable,
+# because the app writes its settings through a temporary file in that
+# directory and then renames it into place. The secrets file is separate
+# and is only readable by the kiosk user.
 mkdir -p /etc/ha-panel
 chown root:ha-panel /etc/ha-panel
-chmod 0750 /etc/ha-panel
+chmod 0770 /etc/ha-panel
 
 if [ ! -f /etc/ha-panel/config.json ]; then
 	cat >/etc/ha-panel/config.json <<'EOF'

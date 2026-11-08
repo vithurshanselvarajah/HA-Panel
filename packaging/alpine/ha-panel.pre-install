@@ -1,15 +1,19 @@
 #!/bin/sh
 
 # Create the kiosk user and the directories the app needs.
+#
+# Alpine's apk does not create the users a package declares, so this
+# script does it. It runs before the package's files are put in place.
 
 addgroup -S ha-panel 2>/dev/null || true
 adduser -S -D -G ha-panel -H -h /var/lib/ha-panel -s /sbin/nologin ha-panel 2>/dev/null || true
 
-# The configuration directory holds a file the kiosk user owns, so that it
-# can save its own settings.
+# The configuration directory is group-writable, because the app writes
+# its settings through a temporary file in that directory and then
+# renames it into place.
 mkdir -p /etc/ha-panel
 chown root:ha-panel /etc/ha-panel
-chmod 0660 /etc/ha-panel
+chmod 0770 /etc/ha-panel
 
 mkdir -p /var/lib/ha-panel /var/cache/ha-panel /run/ha-panel
 chown -R ha-panel:ha-panel /var/lib/ha-panel /var/cache/ha-panel

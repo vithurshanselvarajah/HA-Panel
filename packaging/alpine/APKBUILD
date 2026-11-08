@@ -1,26 +1,26 @@
 # Contributor: Vithurshan Selvarajah
-# Maintainer: Vithurshan Selvarajah
+# Maintainer: Vithurshan Selvarajah <noreply@example.com>
 #
 # Alpine has no Tauri bundle target for .apk, so the package is built by
-# hand. The application is built against musl, which means the WebKitGTK
-# and GTK libraries come from Alpine's own packages rather than being
-# bundled.
+# hand.
 #
-# The build is not done by this APKBUILD alone: the Rust application is
-# built inside the container that scripts/build-alpine.sh starts, because
-# a cross build from a glibc runner would link against the wrong GTK and
-# WebKitGTK. The build() function below therefore assembles what has
-# already been built rather than building it.
+# The build is not done by this APKBUILD alone. The frontend, the Rust
+# application and the Go sidecar are built inside the container that
+# scripts/build-alpine.sh starts, because a cross build from a glibc
+# runner would link against the wrong GTK and WebKitGTK. Those builds
+# happen first and their output is staged into the source tree that this
+# APKBUILD packages. The build() function below therefore assembles what
+# has already been built rather than building it.
 #
-# This APKBUILD has not yet been through an actual `abuild` on a real
-# Alpine device. See docs/packaging.md for what has and has not been
-# verified.
+# The staging is done by scripts/alpine-build-inner.sh, which also writes
+# the sha512sums line. The checksum is not in this file because the
+# source is a tarball that is made per build, not a fixed download.
 
 pkgname=ha-panel
 pkgver=0.1.0
 pkgrel=0
 pkgdesc="A lightweight Home Assistant kiosk for wall-mounted displays"
-arch="all" # the binary is architecture specific; the package is not
+arch="x86_64 aarch64 armv7"
 url="https://github.com/vithurshanselvarajah/HA-Panel"
 license="MIT"
 depends="$pkgname-runtime"
@@ -28,83 +28,85 @@ makedepends="
 	build-base
 	ca-certificates
 	"
+# The script that creates the kiosk user. Alpine's apk does not create
+# the users a package declares, so this runs at install time instead.
 install="$pkgname.pre-install"
-subpackages="$pkgname-doc $pkgname-openrc"
+subpackages="$pkgname-runtime $pkgname-doc $pkgname-openrc"
 source="$pkgname-$pkgver.tar.gz"
 options="!check"
 
-# The architecture of the container the build ran in.
-_arch="$CTARGET_ARCH"
-
-# The Rust target triple, which is also the name the sidecar carries.
-case "$_arch" in
-x86_64) _target="x86_64-unknown-linux-musl" ;;
-aarch64) _target="aarch64-unknown-linux-musl" ;;
-armv7) _target="armv7-unknown-linux-musleabihf" ;;
-*) echo "no musl target for $_arch" >&2; return 1 ;;
-esac
+# The kiosk user and its group. The application runs as this user, and
+# the configuration directory is shared with it.
+pkggroups="ha-panel"
+pkgusers="ha-panel"
 
 build() {
-	cd "$builddir"
-
-	# The frontend, the Rust application and the Go sidecar are built by
-	# scripts/build-alpine.sh before abuild runs, and their output is
-	# copied into the source tree here.
-	#
-	# The frontend.
-	npm ci --prefix ui
-	npm run build --prefix ui
-
-	# The Rust application.
-	#
-	# The Tauri CLI needs the frontend's output, and it passes the
-	# right target through to cargo.
-	cargo build --release --target "$_target" --manifest-path src-tauri/Cargo.toml
-
-	# The Go sidecar. It is built without cgo, because the SDK's ALSA
-	# backend loads libasound at runtime rather than linking it.
-	CGO_ENABLED=0 GOOS=linux GOARCH="$_arch" go build \
-		-C sidecar \
-		-trimpath \
-		-ldflags="-s -w" \
-		-o "$startdir/ha-panel-sidecar" \
-		.
+	# Everything is already built and staged into the source tree.
+	# The check here is that the pieces this package needs are present,
+	# because a missing one would otherwise produce a package that
+	# installs and then fails to start.
+	for file in ha-panel ha-panel-sidecar; do
+		if [ ! -f "$builddir/$file" ]; then
+			echo "$file was not staged into the source tree" >&2
+			return 1
+		fi
+	done
 }
 
 package() {
-	local dir="/usr/lib/$pkgname"
-	mkdir -p "$dir"
+	# The application and its sidecar. They sit in the same directory
+	# because the application looks for the sidecar next to itself.
+	install -Dm755 "$builddir/ha-panel" "$pkgdir/usr/bin/ha-panel"
+	install -Dm755 "$builddir/ha-panel-sidecar" "$pkgdir/usr/bin/ha-panel-sidecar"
 
-	install -Dm755 "$builddir/src-tauri/target/$_target/release/ha-panel" \
-		"$dir/ha-panel"
-	install -Dm755 "$builddir/ha-panel-sidecar" \
-		"$dir/ha-panel-sidecar"
+	# The configuration. The directory is owned by root and shared with
+	# the kiosk group, so that the kiosk user can write its settings
+	# there without being able to read the directory's other contents.
+	install -d -m 0770 -o root -g ha-panel "$pkgdir/etc/ha-panel"
+	install -m 0660 -o ha-panel -g ha-panel \
+		"$builddir/etc-ha-panel-config.json" \
+		"$pkgdir/etc/ha-panel/config.json"
 
-	# The frontend.
-	install -Dm644 "$builddir/ui/dist/index.html" \
-		"$dir/web/index.html"
-	install -Dm644 "$builddir/ui/dist/keyboard.html" \
-		"$dir/web/keyboard.html"
-	install -Dm644 "$builddir/ui/dist/assets/"* \
-		"$dir/web/assets/"
+	# The state and cache directories. The application keeps its log in
+	# memory and only writes here when it has to.
+	install -d -m 0750 -o ha-panel -g ha-panel "$pkgdir/var/lib/ha-panel"
+	install -d -m 0750 -o ha-panel -g ha-panel "$pkgdir/var/cache/ha-panel"
 
-	# The launcher, which finds the resources next to itself.
-	cat >"$dir/ha-panel-launcher" <<'EOF'
-#!/bin/sh
-exec /usr/lib/ha-panel/ha-panel "$@"
-EOF
-	chmod 0755 "$dir/ha-panel-launcher"
+	# The desktop entry and the icons, for a device that has a desktop
+	# session.
+	install -Dm644 "$builddir/packaging/ha-panel.desktop" \
+		"$pkgdir/usr/share/applications/ha-panel.desktop"
+	for size in 32 128 256 512; do
+		install -Dm644 "$builddir/icons/${size}x${size}.png" \
+			"$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps/ha-panel.png"
+	done
 
-	install -Dm755 "$builddir/packaging/alpine/ha-panel.initd" \
-		"$dir/ha-panel.initd"
-	install -Dm755 "$builddir/packaging/alpine/ha-panel.pre-install" \
-		"$dir/ha-panel.pre-install"
+	install -Dm644 "$builddir/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 
-	install -Dm644 "$builddir/LICENSE" "$dir/LICENSE"
+	# The documentation. This goes under usr/share/doc, which is where
+	# abuild's own doc subpackage looks for it.
+	install -Dm644 "$builddir/README.md" "$pkgdir/usr/share/doc/$pkgname/README.md"
+	for doc in architecture configuration installation; do
+		install -Dm644 "$builddir/docs/$doc.md" \
+			"$pkgdir/usr/share/doc/$pkgname/$doc.md"
+	done
+
+	# The OpenRC service. It goes into the root package and is moved
+	# into the openrc subpackage by amove, which is how abuild splits a
+	# file from one package into another.
+	install -d "$pkgdir/etc/init.d"
+	install -Dm755 "$builddir/packaging/ha-panel.initd" \
+		"$pkgdir/etc/init.d/ha-panel"
 }
 
 runtime() {
-	# The WebKitGTK runtime and the tools the app drives.
+	# This is a virtual package: it holds the runtime dependencies but
+	# no files. It is built as a subpackage so that the dependencies can
+	# be listed once and pulled in with the application.
+	#
+	# The directory is created with $subpkgdir, not $pkgdir: a split
+	# function's $pkgdir is the root package's directory, so writing
+	# there would put the files in the wrong package.
 	pkgdesc="The runtime for ha-panel"
 	depends="
 		alsa-utils
@@ -112,23 +114,17 @@ runtime() {
 		gtk+3.0
 		libx11
 		libxkbcommon
-		mesa-libgallium
+		mesa-dri-gallium
 		networkmanager
-		webcore
 		webkit2gtk-4.1
 		wlopm
 		wpa_supplicant
 		xset
 		"
+	install -d "$subpkgdir"
 }
 
-doc() {
-	pkgdesc="Documentation for ha-panel"
-	install -Dm644 "$builddir/README.md" "$pkgdir/usr/share/doc/$pkgname/README.md"
-	install -Dm644 "$builddir/docs/architecture.md" \
-		"$pkgdir/usr/share/doc/$pkgname/architecture.md"
+openrc() {
+	pkgdesc="The OpenRC service for ha-panel"
+	amove etc/init.d
 }
-
-# The source is built from a checkout rather than a tarball in CI, so the
-# checksum is not known here. `abuild -r` accepts this for a local build.
-sha512sums="SKIP 0"

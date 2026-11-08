@@ -6,11 +6,13 @@ How to put HA-Panel on a device and make it start at boot.
 
 | | |
 | --- | --- |
-| The application | `/usr/lib/ha-panel/ha-panel` |
-| The sidecar | `/usr/lib/ha-panel/ha-panel-sidecar` |
-| The frontend | `/usr/lib/ha-panel/web/` |
+| The application | `/usr/bin/ha-panel` |
+| The sidecar | `/usr/bin/ha-panel-sidecar` |
 | The configuration | `/etc/ha-panel/config.json` |
 | The service | `ha-panel.service` |
+
+The frontend is compiled into the application, so there is no separate
+directory of web files to install.
 
 The package is about 12 MB. The runtime dependencies are the system's:
 `libwebkit2gtk-4.1-0`, `libgtk-3-0`, and the tools the app drives —

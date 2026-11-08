@@ -9,7 +9,7 @@ installing a package and without touching the system's configuration.
 | --- | --- | --- |
 | Rust | 1.90 or newer | The application. Tauri's minimum. |
 | Node.js | 24 | The frontend build. |
-| Go | 1.24 | The sidecar. |
+| Go | 1.26 | The sidecar. |
 | GTK and WebKitGTK headers | 4.1 | The webview. |
 
 On Debian or Ubuntu:
@@ -25,12 +25,15 @@ On Alpine:
 ```sh
 sudo apk add --no-cache \
   build-base ca-certificates cargo go nodejs npm pkgconf \
-  rustup linux-headers webkit2gtk-4.1-dev gtk+3.0-dev
+  linux-headers webkit2gtk-4.1-dev gtk+3.0-dev
 ```
 
-Alpine's Rust is 1.91, which is fine. The Alpine build uses `rustup`
-rather than Alpine's `rust` package so that both builds use the same
-compiler — see [packaging.md](packaging.md).
+Alpine's Rust is 1.91, which is fine. The Alpine package build uses
+Alpine's own Rust rather than `rustup`: on Alpine the `rustup` package
+ships only `rustup-init`, so there is no rustup to configure. The Go
+toolchain for that build is the official tarball rather than Alpine's
+package, because the Go version Alpine carries lags behind the standard
+library security fixes — see [packaging.md](packaging.md).
 
 ## Running it locally
 

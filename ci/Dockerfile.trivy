@@ -1,1 +1,12 @@
 FROM aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb
+
+# The scanner reads the repository and writes a cache. It does not need
+# root to do either, and running it as root is a container escape waiting
+# to happen — the repository it reads is, in the CI, untrusted input.
+#
+# It needs a cache directory it owns, so the home directory is made
+# writable first and then handed to the unprivileged user.
+USER root
+RUN mkdir -p /var/cache/trivy && chown -R nobody:nobody /var/cache/trivy
+ENV XDG_CACHE_HOME=/var/cache/trivy
+USER nobody

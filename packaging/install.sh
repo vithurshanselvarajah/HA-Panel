@@ -2,7 +2,7 @@
 
 set -eu
 
-PREFIX="${PREFIX:-/usr/lib/ha-panel}"
+PREFIX="${PREFIX:-/usr/bin}"
 CONFIG_DIR="${CONFIG_DIR:-/etc/ha-panel}"
 SKIP_SETUP="${SKIP_SETUP:-0}"
 SKIP_SERVICE="${SKIP_SERVICE:-0}"
@@ -49,7 +49,7 @@ setup_questions() {
 
 	mkdir -p "$CONFIG_DIR"
 	chown root:ha-panel "$CONFIG_DIR" 2>/dev/null || true
-	chmod 0750 "$CONFIG_DIR" 2>/dev/null || true
+	chmod 0770 "$CONFIG_DIR" 2>/dev/null || true
 
 	if [ ! -f "$CONFIG_DIR/config.json" ]; then
 		cat >"$CONFIG_DIR/config.json" <<EOF
