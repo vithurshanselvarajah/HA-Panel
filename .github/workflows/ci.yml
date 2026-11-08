@@ -35,6 +35,23 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
+      # The Tauri build script needs the sidecar to be beside the
+      # application, even for a check or a test. The sidecar is built
+      # from the Go sources, so Go is needed here too.
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.26"
+          cache-dependency-path: sidecar/go.sum
+
+      - name: Build the sidecar
+        run: |
+          set -eu
+          suffix=$(rustc -vV | sed -n 's/^host: //p')
+          mkdir -p src-tauri/binaries
+          cd sidecar
+          go build -trimpath -ldflags="-s -w" \
+            -o "../src-tauri/binaries/ha-panel-sidecar-$suffix" .
+
       - name: Check the formatting
         run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
 

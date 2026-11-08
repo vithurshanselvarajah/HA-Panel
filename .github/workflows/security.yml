@@ -43,12 +43,22 @@ jobs:
           npm ci
           npm audit --audit-level=high
 
+      # The Go toolchain is set up explicitly rather than taken from the
+      # runner's default, so that the audit runs against the same Go
+      # version the code is built with.
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.26"
+          cache-dependency-path: sidecar/go.sum
+
       - name: Audit the Go modules
         run: |
           set -eu
           cd sidecar
           go install golang.org/x/vuln/cmd/govulncheck@latest
-          govulncheck ./...
+          # `go install` puts the binary in the Go bin directory, which
+          # is not on the path.
+          "$(go env GOPATH)/bin/govulncheck" ./...
 
   repository:
     name: Repository scan
