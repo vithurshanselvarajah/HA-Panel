@@ -1,0 +1,70 @@
+[Unit]
+Description=HA-Panel — Home Assistant kiosk
+Documentation=https://github.com/vithurshanselvarajah/HA-Panel
+
+# The app needs the display. It does not need the network to start: it
+# shows what it has and reconnects when the network comes back.
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+User=ha-panel
+Group=ha-panel
+
+# The app reads and writes its configuration, and it needs the audio and
+# the display.
+SupplementaryGroups=audio video input render network
+DeviceAllow=/dev/snd/char rw
+DeviceAllow=/dev/dri/renderD128 rw
+DeviceAllow=/dev/dri/card0 rw
+
+# The sidecar serves a Unix socket, and it needs a place to put it.
+RuntimeDirectory=ha-panel
+RuntimeDirectoryMode=0755
+StateDirectory=ha-panel
+StateDirectoryMode=0750
+
+Environment=WAYLAND_DISPLAY=wayland-0
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+Environment=HOME=/var/lib/ha-panel
+
+# The app's own log is in memory. systemd's journal is the only thing
+# that reaches the disk, and it is rotated and rate-limited by the
+# journald configuration rather than by the app.
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ha-panel
+
+# The WebKitGTK runtime writes its cache into the app's own directory,
+# not into the user's home.
+Environment=WEBKIT_DISABLE_COMPOSITING_MODE=1
+Environment=XDG_CACHE_HOME=/var/cache/ha-panel
+RuntimeDirectory=ha-panel
+
+# Restart on failure, but not in a tight loop.
+Restart=on-failure
+RestartSec=5
+
+# The kiosk does not need much.
+MemoryMax=512M
+CPUWeight=60
+Nice=5
+
+# The app needs to read the machine's network configuration to offer Wi-Fi
+# controls, and to talk to NetworkManager over D-Bus.
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=false
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+
+[Install]
+WantedBy=graphical-session.target

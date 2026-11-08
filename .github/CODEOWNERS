@@ -1,0 +1,7 @@
+# The people who review changes to each part of the project.
+#
+# The Rust application, the frontend and the sidecar are reviewed by the
+# same person, because the boundaries between them are where the
+# interesting bugs live.
+
+* @vithurshanselvarajah

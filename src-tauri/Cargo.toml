@@ -1,0 +1,47 @@
+[package]
+name = "ha-panel"
+version = "0.1.0"
+description = "A lightweight Home Assistant kiosk for wall-mounted displays"
+authors = ["Vithurshan Selvarajah"]
+license = "MIT"
+edition = "2021"
+rust-version = "1.90"
+default-run = "ha-panel"
+
+[lib]
+name = "ha_panel_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7.4", features = [] }
+
+[dependencies]
+tauri = { version = "2.12.5", features = [] }
+tauri-plugin-shell = "2.6.0"
+
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+
+thiserror = "2.0.21"
+anyhow = "1.0.104"
+
+log = "0.4.28"
+
+# NetworkManager is driven through `nmcli`, and audio through `wpctl`,
+# `pactl` and `amixer`, so the binary needs no D-Bus client of its own.
+# A D-Bus library would pull an async runtime into a binary that has to
+# share 2 GB of RAM with a browser engine.
+
+[dev-dependencies]
+tempfile = "3.24.0"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+incremental = false
+
+[profile.dev]
+opt-level = 1

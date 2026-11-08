@@ -1,0 +1,13 @@
+[Unit]
+Description=HA-Panel — the kiosk and its compositor
+Documentation=https://github.com/vithurshanselvarajah/HA-Panel
+
+# The target that pulls in both the compositor and the app. A device that
+# wants its own compositor enables this one; a device with a session
+# enables `ha-panel.service` on its own.
+
+Wants=ha-panel-compositor.service ha-panel.service
+After=ha-panel-compositor.service ha-panel.service
+
+[Install]
+WantedBy=graphical-session.target

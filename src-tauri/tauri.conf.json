@@ -1,0 +1,39 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "HA-Panel",
+  "version": "0.1.0",
+  "identifier": "io.hapanel.panel",
+  "build": {
+    "frontendDist": "../ui/dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost",
+      "capabilities": ["local-windows"]
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["deb"],
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.png"],
+    "category": "Utility",
+    "shortDescription": "Home Assistant kiosk for wall-mounted displays",
+    "longDescription": "HA-Panel shows the Home Assistant dashboard fullscreen on a wall-mounted display and gives you a control drawer for volume, screen power, brightness and Wi-Fi.",
+    "externalBin": ["binaries/ha-panel-sidecar"],
+    "linux": {
+      "deb": {
+        "desktopTemplate": "../packaging/ha-panel.desktop",
+        "files": {
+          "/usr/lib/systemd/system/ha-panel.service": "../packaging/systemd/ha-panel.service",
+          "/usr/lib/systemd/system/ha-panel-compositor.service": "../packaging/systemd/ha-panel-compositor.service",
+          "/usr/lib/systemd/system/ha-panel.target": "../packaging/systemd/ha-panel.target",
+          "/usr/share/ha-panel/install.sh": "../packaging/install.sh"
+        }
+      }
+    }
+  }
+}

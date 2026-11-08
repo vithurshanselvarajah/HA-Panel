@@ -1,0 +1,36 @@
+#!/sbin/openrc-run
+# shellcheck shell=sh
+
+# HA-Panel — the Home Assistant kiosk on Alpine.
+#
+# Alpine has no systemd, so the app is run by OpenRC. The compositor
+# variant starts a wlroots compositor first; the plain variant assumes a
+# session is already there.
+
+name="ha-panel"
+description="Home Assistant kiosk"
+
+command="/usr/lib/ha-panel/ha-panel"
+command_args=""
+command_user="ha-panel:ha-panel"
+command_background="yes"
+pidfile="/run/${RC_SVCNAME}.pid"
+
+output_log="/var/log/ha-panel.log"
+error_log="/var/log/ha-panel.log"
+
+depend() {
+	need localmount
+	after bootmisc
+	use dbus logger net
+	# The kiosk needs the display. It does not need the network to start.
+	after display-manager
+}
+
+start_pre() {
+	checkpath --directory --mode 0755 --owner "$command_user" /run/ha-panel
+	checkpath --directory --mode 0750 --owner "$command_user" /var/lib/ha-panel
+}
+
+# The compositor is optional. Set `ha_panel_compositor=cage` in
+# /etc/conf.d/ha-panel to start one.

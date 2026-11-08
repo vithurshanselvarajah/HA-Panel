@@ -1,0 +1,134 @@
+# Contributor: Vithurshan Selvarajah
+# Maintainer: Vithurshan Selvarajah
+#
+# Alpine has no Tauri bundle target for .apk, so the package is built by
+# hand. The application is built against musl, which means the WebKitGTK
+# and GTK libraries come from Alpine's own packages rather than being
+# bundled.
+#
+# The build is not done by this APKBUILD alone: the Rust application is
+# built inside the container that scripts/build-alpine.sh starts, because
+# a cross build from a glibc runner would link against the wrong GTK and
+# WebKitGTK. The build() function below therefore assembles what has
+# already been built rather than building it.
+#
+# This APKBUILD has not yet been through an actual `abuild` on a real
+# Alpine device. See docs/packaging.md for what has and has not been
+# verified.
+
+pkgname=ha-panel
+pkgver=0.1.0
+pkgrel=0
+pkgdesc="A lightweight Home Assistant kiosk for wall-mounted displays"
+arch="all" # the binary is architecture specific; the package is not
+url="https://github.com/vithurshanselvarajah/HA-Panel"
+license="MIT"
+depends="$pkgname-runtime"
+makedepends="
+	build-base
+	ca-certificates
+	"
+install="$pkgname.pre-install"
+subpackages="$pkgname-doc $pkgname-openrc"
+source="$pkgname-$pkgver.tar.gz"
+options="!check"
+
+# The architecture of the container the build ran in.
+_arch="$CTARGET_ARCH"
+
+# The Rust target triple, which is also the name the sidecar carries.
+case "$_arch" in
+x86_64) _target="x86_64-unknown-linux-musl" ;;
+aarch64) _target="aarch64-unknown-linux-musl" ;;
+armv7) _target="armv7-unknown-linux-musleabihf" ;;
+*) echo "no musl target for $_arch" >&2; return 1 ;;
+esac
+
+build() {
+	cd "$builddir"
+
+	# The frontend, the Rust application and the Go sidecar are built by
+	# scripts/build-alpine.sh before abuild runs, and their output is
+	# copied into the source tree here.
+	#
+	# The frontend.
+	npm ci --prefix ui
+	npm run build --prefix ui
+
+	# The Rust application.
+	#
+	# The Tauri CLI needs the frontend's output, and it passes the
+	# right target through to cargo.
+	cargo build --release --target "$_target" --manifest-path src-tauri/Cargo.toml
+
+	# The Go sidecar. It is built without cgo, because the SDK's ALSA
+	# backend loads libasound at runtime rather than linking it.
+	CGO_ENABLED=0 GOOS=linux GOARCH="$_arch" go build \
+		-C sidecar \
+		-trimpath \
+		-ldflags="-s -w" \
+		-o "$startdir/ha-panel-sidecar" \
+		.
+}
+
+package() {
+	local dir="/usr/lib/$pkgname"
+	mkdir -p "$dir"
+
+	install -Dm755 "$builddir/src-tauri/target/$_target/release/ha-panel" \
+		"$dir/ha-panel"
+	install -Dm755 "$builddir/ha-panel-sidecar" \
+		"$dir/ha-panel-sidecar"
+
+	# The frontend.
+	install -Dm644 "$builddir/ui/dist/index.html" \
+		"$dir/web/index.html"
+	install -Dm644 "$builddir/ui/dist/keyboard.html" \
+		"$dir/web/keyboard.html"
+	install -Dm644 "$builddir/ui/dist/assets/"* \
+		"$dir/web/assets/"
+
+	# The launcher, which finds the resources next to itself.
+	cat >"$dir/ha-panel-launcher" <<'EOF'
+#!/bin/sh
+exec /usr/lib/ha-panel/ha-panel "$@"
+EOF
+	chmod 0755 "$dir/ha-panel-launcher"
+
+	install -Dm755 "$builddir/packaging/alpine/ha-panel.initd" \
+		"$dir/ha-panel.initd"
+	install -Dm755 "$builddir/packaging/alpine/ha-panel.pre-install" \
+		"$dir/ha-panel.pre-install"
+
+	install -Dm644 "$builddir/LICENSE" "$dir/LICENSE"
+}
+
+runtime() {
+	# The WebKitGTK runtime and the tools the app drives.
+	pkgdesc="The runtime for ha-panel"
+	depends="
+		alsa-utils
+		ca-certificates
+		gtk+3.0
+		libx11
+		libxkbcommon
+		mesa-libgallium
+		networkmanager
+		webcore
+		webkit2gtk-4.1
+		wlopm
+		wpa_supplicant
+		xset
+		"
+}
+
+doc() {
+	pkgdesc="Documentation for ha-panel"
+	install -Dm644 "$builddir/README.md" "$pkgdir/usr/share/doc/$pkgname/README.md"
+	install -Dm644 "$builddir/docs/architecture.md" \
+		"$pkgdir/usr/share/doc/$pkgname/architecture.md"
+}
+
+# The source is built from a checkout rather than a tarball in CI, so the
+# checksum is not known here. `abuild -r` accepts this for a local build.
+sha512sums="SKIP 0"

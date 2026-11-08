@@ -1,0 +1,16 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "local-windows",
+  "description": "The app's own windows: the drawer, the keyboard and the edge handle. The Home Assistant window is deliberately absent — it is a remote document and must not reach the app's commands.",
+  "windows": ["drawer", "keyboard", "handle"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-show",
+    "core:window:allow-hide",
+    "core:window:allow-set-focus",
+    "core:window:allow-close",
+    "core:window:allow-start-dragging",
+    "core:webview:allow-create-webview-window",
+    "shell:allow-open"
+  ]
+}

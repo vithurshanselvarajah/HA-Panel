@@ -1,0 +1,17 @@
+#!/bin/sh
+
+# Create the kiosk user and the directories the app needs.
+
+addgroup -S ha-panel 2>/dev/null || true
+adduser -S -D -G ha-panel -H -h /var/lib/ha-panel -s /sbin/nologin ha-panel 2>/dev/null || true
+
+# The configuration directory holds a file the kiosk user owns, so that it
+# can save its own settings.
+mkdir -p /etc/ha-panel
+chown root:ha-panel /etc/ha-panel
+chmod 0660 /etc/ha-panel
+
+mkdir -p /var/lib/ha-panel /var/cache/ha-panel /run/ha-panel
+chown -R ha-panel:ha-panel /var/lib/ha-panel /var/cache/ha-panel
+
+exit 0

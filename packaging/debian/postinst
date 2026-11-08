@@ -1,0 +1,70 @@
+#!/bin/sh
+set -e
+
+# The kiosk user.
+if ! getent group ha-panel >/dev/null; then
+	addgroup --system ha-panel
+fi
+if ! getent passwd ha-panel >/dev/null; then
+	adduser --system --ingroup ha-panel --home /var/lib/ha-panel \
+		--no-create-home --disabled-password --shell /usr/sbin/nologin ha-panel
+fi
+
+# The configuration directory holds a file the kiosk user owns, so that it
+# can save its own settings. The secrets file is separate and is only
+# readable by the kiosk user.
+mkdir -p /etc/ha-panel
+chown root:ha-panel /etc/ha-panel
+chmod 0750 /etc/ha-panel
+
+if [ ! -f /etc/ha-panel/config.json ]; then
+	cat >/etc/ha-panel/config.json <<'EOF'
+{
+  "ha": {
+    "url": "http://homeassistant.local:8123",
+    "dashboard_path": "/lovelace",
+    "fullscreen": true,
+    "reload_on_reconnect": true
+  },
+  "kiosk": {
+    "handle_width": 12,
+    "drawer_width": 380,
+    "show_handle": true,
+    "on_screen_keyboard": true,
+    "screen_off_timeout_secs": 0,
+    "screen_on_timeout_secs": 0
+  },
+  "audio": {
+    "backend": "auto",
+    "volume": 50,
+    "muted": false
+  },
+  "display": {
+    "screen_power": "auto",
+    "brightness": null
+  },
+  "network": {
+    "wifi_enabled": true
+  },
+  "echomuse": {
+    "enabled": false
+  }
+}
+EOF
+	chown root:ha-panel /etc/ha-panel/config.json
+	chmod 0660 /etc/ha-panel/config.json
+fi
+
+mkdir -p /var/lib/ha-panel /var/cache/ha-panel
+chown -R ha-panel:ha-panel /var/lib/ha-panel /var/cache/ha-panel
+
+# The systemd units.
+if [ -d /usr/lib/systemd/system ]; then
+	systemctl daemon-reload >/dev/null 2>&1 || true
+fi
+
+echo "HA-Panel is installed."
+echo "  Edit /etc/ha-panel/config.json to point it at your Home Assistant."
+echo "  Start it with: systemctl enable --now ha-panel.target"
+
+exit 0

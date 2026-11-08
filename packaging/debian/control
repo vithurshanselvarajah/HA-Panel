@@ -1,0 +1,38 @@
+Source: ha-panel
+Section: utils
+Priority: optional
+Maintainer: Vithurshan Selvarajah <noreply@example.com>
+Build-Depends: debhelper-compat (= 13),
+               libwebkit2gtk-4.1-dev,
+               libgtk-3-dev,
+               libssl-dev,
+               pkg-config,
+               cargo,
+               rustc,
+               nodejs,
+               npm,
+               golang-go
+Standards-Version: 4.6.2
+Homepage: https://github.com/vithurshanselvarajah/HA-Panel
+Rules-Requires-Root: no
+
+Package: ha-panel
+Architecture: amd64 arm64
+Depends: ${shlibs:Depends}, ${misc:Depends},
+         libwebkit2gtk-4.1-0,
+         libgtk-3-0,
+         network-manager,
+         alsa-utils,
+         policykit-1
+Recommends: wlopm, x11-xserver-utils
+Suggests: cage
+Description: Home Assistant kiosk for wall-mounted displays
+ HA-Panel shows the Home Assistant dashboard fullscreen on a display and
+ gives a control drawer for the things a kiosk panel needs: volume, mute,
+ screen power, brightness, Wi-Fi, and the audio input and output
+ endpoints.
+ .
+ It runs on a device with a desktop session or on one with only a bare
+ wlroots compositor, and it is built for a device with 2 GB of RAM and
+ 4 GB of storage. Logs are kept in memory and only reach the disk when
+ something fails.

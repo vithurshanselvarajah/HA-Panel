@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=HA Panel
+GenericName=Home Assistant Kiosk
+Comment=Show the Home Assistant dashboard on this display
+Exec=ha-panel
+Icon=ha-panel
+Terminal=false
+Categories=Utility;Network;
+StartupNotify=false
+X-KDE-StartupNotify=false

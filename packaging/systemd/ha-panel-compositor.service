@@ -1,0 +1,50 @@
+[Unit]
+Description=HA-Panel — a wlroots compositor for the kiosk
+Documentation=https://github.com/vithurshanselvarajah/HA-Panel
+
+# The kiosk's own compositor. This is the variant for a device that has
+# no desktop of its own: it starts a bare wlroots compositor and puts the
+# app inside it.
+#
+# A device that already has a session — a Phosh shell, a normal desktop —
+# uses `ha-panel.service` instead and does not need this one.
+
+After=systemd-user-sessions.service
+Before=ha-panel.service
+
+[Service]
+Type=simple
+User=ha-panel
+Group=ha-panel
+SupplementaryGroups=video render input audio
+
+# The compositor is configured through these. `cage` is the default; set
+# `HA_PANEL_COMPOSITOR=labwc` for labwc instead.
+Environment=HA_PANEL_COMPOSITOR=cage
+Environment=XDG_RUNTIME_DIR=/run/user/%U
+
+RuntimeDirectory=ha-panel
+RuntimeDirectoryMode=0755
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ha-panel-compositor
+
+Restart=on-failure
+RestartSec=5
+
+MemoryMax=256M
+CPUWeight=40
+Nice=5
+
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=graphical-session.target

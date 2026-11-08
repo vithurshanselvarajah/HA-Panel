@@ -1,0 +1,9 @@
+# Trivy findings that are not worth acting on.
+#
+# Each entry is a CVE identifier with an expiry date and a reason. A line
+# without an expiry date is permanent, and the workflow hygiene check
+# fails the build if one is found — a permanent ignore is a decision that
+# has to be revisited, and the date is what forces that.
+#
+# There are none at the moment. An empty file is the right thing here:
+# every finding Trivy reports is a finding worth looking at.

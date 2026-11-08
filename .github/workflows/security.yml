@@ -1,0 +1,141 @@
+name: Security scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+
+    - cron: "23 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+
+  dependencies:
+    name: Dependency audit
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Audit the Rust crates
+        uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Audit the frontend
+        run: |
+          set -eu
+          cd ui
+          npm ci
+          npm audit --audit-level=high
+
+      - name: Audit the Go modules
+        run: |
+          set -eu
+          cd sidecar
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
+  repository:
+    name: Repository scan
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Build pinned vulnerability scanner
+        run: docker build --tag ha-panel-trivy --file ci/Dockerfile.trivy ci
+
+      - name: Scan repository secrets and configuration
+        run: |
+          docker run --rm -v "$PWD:/src:ro" ha-panel-trivy fs \
+            --ignorefile /src/ci/.trivyignore \
+            --scanners secret,misconfig \
+            --severity HIGH,CRITICAL \
+            --exit-code 1 \
+            --skip-dirs /src/.git \
+            --skip-dirs /src/ui/node_modules \
+            --skip-dirs /src/src-tauri/target \
+            --skip-dirs /src/ui/dist \
+            /src
+
+  package:
+    name: Package scan
+    runs-on: ubuntu-24.04
+    needs: [dependencies, repository]
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Install the build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libssl-dev \
+            pkg-config \
+            nodejs \
+            npm \
+            golang-go
+
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "24"
+
+      - name: Build the packages
+        run: |
+          ./scripts/build.sh
+          npx tauri build --config src-tauri/tauri.conf.json
+
+      - name: Build pinned vulnerability scanner
+        run: docker build --tag ha-panel-trivy --file ci/Dockerfile.trivy ci
+
+      - name: Scan the release binary
+        run: |
+          docker run --rm -v "$PWD:/src:ro" ha-panel-trivy fs \
+            --ignorefile /src/ci/.trivyignore \
+            --scanners vuln \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --exit-code 1 \
+            --skip-dirs /src/.git \
+            --skip-dirs /src/ui/node_modules \
+            --skip-dirs /src/src-tauri/target/debug \
+            --skip-dirs /src/sidecar/third_party \
+            /src
+
+      - name: Scan again for SARIF
+        if: always()
+        run: |
+          docker run --rm -v "$PWD:/src:ro" ha-panel-trivy fs \
+            --ignorefile /src/ci/.trivyignore \
+            --scanners vuln \
+            --severity MEDIUM,HIGH,CRITICAL \
+            --format sarif \
+            --output /src/trivy-results.sarif \
+            --skip-dirs /src/.git \
+            --skip-dirs /src/ui/node_modules \
+            --skip-dirs /src/src-tauri/target/debug \
+            --skip-dirs /src/sidecar/third_party \
+            /src
+
+      - name: Upload results to code scanning
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-package
