@@ -11,6 +11,9 @@
 # Go
 /sidecar/ha-panel-sidecar
 
+# The build output: the packages that the build scripts produce
+/dist/
+
 # Python
 __pycache__/
 *.py[cod]

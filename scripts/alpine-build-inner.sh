@@ -181,6 +181,11 @@ rm -rf "$PKGDIR"
 mkdir -p "$PKGDIR"
 cp "$WORK/ha-panel/packaging/alpine/APKBUILD" "$PKGDIR/"
 
+# The install script has to sit next to the APKBUILD: abuild looks for
+# it at the path the APKBUILD names, relative to the directory the
+# APKBUILD is in.
+cp "$WORK/ha-panel/packaging/alpine/ha-panel.pre-install" "$PKGDIR/"
+
 # The source tarball, named the way abuild expects: pkgname-pkgver.
 tar czf "$PKGDIR/ha-panel-$PKGVER.tar.gz" -C /tmp/stage "ha-panel-$PKGVER"
 

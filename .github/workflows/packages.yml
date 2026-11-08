@@ -44,7 +44,7 @@ jobs:
       - name: Build
         run: |
           ./scripts/build.sh
-          npx tauri build --config src-tauri/tauri.conf.json
+          ui/node_modules/.bin/tauri build --config src-tauri/tauri.conf.json
 
       - name: Collect
         run: |
@@ -87,7 +87,7 @@ jobs:
       - name: Build
         run: |
           ./scripts/build.sh
-          npx tauri build --config src-tauri/tauri.conf.json
+          ui/node_modules/.bin/tauri build --config src-tauri/tauri.conf.json
 
       - name: Collect
         run: |
@@ -103,20 +103,24 @@ jobs:
 
   apk:
     name: Alpine package
-    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
         include:
           - arch: amd64
-            platform: linux/amd64
+            runner: ubuntu-24.04
           - arch: arm64
-            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
+      # The container runs natively on the runner's own architecture, so
+      # the arm64 package is built on the arm64 runner. Emulating it with
+      # QEMU would work, but the Rust build takes minutes natively and
+      # hours under emulation.
       - name: Build
         run: ./scripts/build-alpine.sh --arch "${{ matrix.arch }}"
 

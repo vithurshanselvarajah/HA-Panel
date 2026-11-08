@@ -122,7 +122,7 @@ jobs:
         run: ./scripts/build.sh
 
       - name: Bundle
-        run: npx tauri build --config src-tauri/tauri.conf.json
+        run: ui/node_modules/.bin/tauri build --config src-tauri/tauri.conf.json
 
       - uses: actions/upload-artifact@v7
         with:

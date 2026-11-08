@@ -106,7 +106,7 @@ jobs:
       - name: Build the packages
         run: |
           ./scripts/build.sh
-          npx tauri build --config src-tauri/tauri.conf.json
+          ui/node_modules/.bin/tauri build --config src-tauri/tauri.conf.json
 
       - name: Build pinned vulnerability scanner
         run: docker build --tag ha-panel-trivy --file ci/Dockerfile.trivy ci

@@ -43,7 +43,7 @@ jobs:
       - name: Build the Debian package
         run: |
           ./scripts/build.sh
-          npx tauri build --config src-tauri/tauri.conf.json
+          ui/node_modules/.bin/tauri build --config src-tauri/tauri.conf.json
 
       - name: Build the Alpine package
         run: ./scripts/build-alpine.sh --arch amd64
@@ -90,7 +90,7 @@ jobs:
       - name: Build the Debian package
         run: |
           ./scripts/build.sh
-          npx tauri build --config src-tauri/tauri.conf.json
+          ui/node_modules/.bin/tauri build --config src-tauri/tauri.conf.json
 
       - name: Build the Alpine package
         run: ./scripts/build-alpine.sh --arch arm64

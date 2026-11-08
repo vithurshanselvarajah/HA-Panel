@@ -56,7 +56,7 @@ sudo apt install ./HA-Panel_0.1.0_arm64.deb
 git clone https://github.com/vithurshanselvarajah/HA-Panel
 cd HA-Panel
 ./scripts/build.sh
-npx tauri build --config src-tauri/tauri.conf.json
+ui/node_modules/.bin/tauri build --config src-tauri/tauri.conf.json
 sudo apt install ./src-tauri/target/release/bundle/deb/*.deb
 ```
 

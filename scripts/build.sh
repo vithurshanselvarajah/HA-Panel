@@ -35,37 +35,41 @@ say() { printf '\n=== %s ===\n' "$*"; }
 case "$TARGET" in
 "" )
 	RUST_TARGET=""
-	GOARCH="amd64"
-	SUFFIX="x86_64-unknown-linux-gnu"
-	;;
+        ;;
 *x86_64*)
-	RUST_TARGET="$TARGET"
-	GOARCH="amd64"
-	SUFFIX="$TARGET"
-	;;
+        RUST_TARGET="$TARGET"
+        GOARCH="amd64"
+        SUFFIX="$TARGET"
+        ;;
 *aarch64*)
-	RUST_TARGET="$TARGET"
-	GOARCH="arm64"
-	SUFFIX="$TARGET"
-	;;
+        RUST_TARGET="$TARGET"
+        GOARCH="arm64"
+        SUFFIX="$TARGET"
+        ;;
 *armv7*)
-	RUST_TARGET="$TARGET"
-	GOARCH="arm"
-	SUFFIX="$TARGET"
-	;;
+        RUST_TARGET="$TARGET"
+        GOARCH="arm"
+        SUFFIX="$TARGET"
+        ;;
 *)
-	echo "unknown target: $TARGET" >&2
-	exit 1
-	;;
+        echo "unknown target: $TARGET" >&2
+        exit 1
+        ;;
 esac
 
+# Without an explicit target the build is native, so everything is
+# derived from the host triple. This matters on the arm64 runner: the
+# Tauri build looks for the sidecar named after the host triple, and a
+# hard-coded amd64 name would leave it missing.
 if [ -z "$RUST_TARGET" ]; then
-	RUST_TARGET=$(rustc -vV | sed -n 's/^host: //p')
+        RUST_TARGET=$(rustc -vV | sed -n 's/^host: //p')
+        SUFFIX="$RUST_TARGET"
+        case "$RUST_TARGET" in
+        *aarch64*) GOARCH="arm64" ;;
+        *armv7*) GOARCH="arm" ;;
+        *) GOARCH="amd64" ;;
+        esac
 fi
-case "$RUST_TARGET" in
-*musl*) SUFFIX="$RUST_TARGET" ;;
-esac
-
 say "the frontend"
 cd "$ROOT/ui"
 if [ ! -d node_modules ]; then

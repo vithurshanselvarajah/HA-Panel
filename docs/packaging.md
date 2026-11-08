@@ -6,7 +6,7 @@ The Tauri bundler makes the `.deb`.
 
 ````sh
 ./scripts/build.sh
-npx tauri build --config src-tauri/tauri.conf.json
+ui/node_modules/.bin/tauri build --config src-tauri/tauri.conf.json
 ````
 
 The package lands in `src-tauri/target/release/bundle/deb/`.
@@ -74,6 +74,11 @@ The container image is pinned by digest. The script runs
 builds the frontend, the Rust application and the Go sidecar, and then
 runs `abuild` over `packaging/alpine/APKBUILD`. The `.apk` lands in
 `dist/`.
+
+The digest is listed per architecture, because a digest names one
+platform's manifest rather than the index that holds all of them. Pulling
+the amd64 digest on an arm64 host fails with "does not provide the
+specified platform".
 
 The repository is mounted **read-only** into the container, and the build
 works on a copy under `/tmp`. A container that writes into the mounted
