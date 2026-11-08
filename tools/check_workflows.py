@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Enforce the workflow pinning rules.
+"""Enforce the workflow rules.
 
-The rules are the ones the CI rules in CONTRIBUTING.md state:
+The rules are the ones the CI rules in docs/ci-rules.md state:
 
-- every action is pinned by commit SHA, never by a tag or a branch;
+- every action is referred to by a version tag, never by a branch or a
+  floating ref;
 - every runner names a release, never "latest";
 - `pull_request_target` is not used, because it runs with the base
   repository's secrets and a pull request's code;
@@ -20,7 +21,18 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
-SHA = re.compile(r"@[0-9a-f]{40}$")
+# A version tag: v1, v7, v2.9, v4.39. A tag may carry a suffix, the way
+# a pre-release does: v2.0.0-rc1.
+VERSION = re.compile(r"^v[0-9]+(\.[0-9]+)*([.-][A-Za-z0-9.]+)?$")
+
+# Some actions name a toolchain rather than a version, and the branch is
+# how they do it. `dtolnay/rust-toolchain@stable` installs the current
+# stable Rust, which is exactly what "the latest" means for a compiler.
+#
+# Only the toolchain action may be named this way: for everything else a
+# branch is a floating reference, which is what this rule exists to stop.
+TOOLCHAIN_BRANCHES = {"stable", "nightly", "beta", "master"}
+TOOLCHAIN_ACTIONS = {"dtolnay/rust-toolchain"}
 
 def check(path: Path) -> list[str]:
     text = path.read_text()
@@ -33,12 +45,21 @@ def check(path: Path) -> list[str]:
         m = re.search(r"\buses:\s*(\S+)", code)
         if m:
             ref = m.group(1).strip("'\"")
-            if not ref.startswith("./") and not SHA.search(ref):
+            if not ref.startswith("./"):
                 if ref.startswith("docker://"):
                     if "@sha256:" not in ref:
                         errors.append(f"{path.name}:{n}: image not pinned by digest: {ref}")
+                elif "@" in ref:
+                    action, version = ref.rsplit("@", 1)
+                    allowed = VERSION.match(version)
+                    if not allowed and action in TOOLCHAIN_ACTIONS:
+                        allowed = version in TOOLCHAIN_BRANCHES
+                    if not allowed:
+                        errors.append(
+                            f"{path.name}:{n}: action must name a version, not {ref}"
+                        )
                 else:
-                    errors.append(f"{path.name}:{n}: action not pinned by commit SHA: {ref}")
+                    errors.append(f"{path.name}:{n}: action has no version: {ref}")
 
         m = re.search(r"\bruns-on:\s*(\S+)", code)
         if m and m.group(1).endswith("-latest"):

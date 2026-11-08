@@ -18,7 +18,8 @@ jobs:
   a:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
       - uses: ./local-action
 """
 
@@ -32,14 +33,41 @@ class CheckWorkflows(unittest.TestCase):
     def test_good_passes(self):
         self.assertEqual(errors_for(GOOD), [])
 
-    def test_tag_ref_fails(self):
-        self.assertTrue(errors_for(GOOD.replace(
-            "@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1", "@v7")))
+    def test_a_branch_fails(self):
+        self.assertTrue(errors_for(GOOD.replace("@v7", "@master")))
 
-    def test_sha_only_in_comment_fails(self):
+    def test_a_sha_fails(self):
+        # A SHA is not a version, and the action it names would not know
+        # which toolchain to install.
+        self.assertTrue(errors_for(GOOD.replace("@v7", "@3d3c42e5aac5ba805825da76410c181273ba90b1")))
+
+    def test_a_version_in_a_comment_does_not_count(self):
         self.assertTrue(errors_for(GOOD.replace(
-            "@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1",
-            "@v7 # 3d3c42e5aac5ba805825da76410c181273ba90b1")))
+            "@v7", "@master # v7")))
+
+    def test_a_ref_with_no_version_fails(self):
+        self.assertTrue(errors_for(GOOD.replace("@v7", "")))
+
+    def test_a_dotted_version_passes(self):
+        self.assertEqual(errors_for(GOOD.replace("@v7", "@v4.39.3")), [])
+
+    def test_a_prerelease_version_passes(self):
+        self.assertEqual(errors_for(GOOD.replace("@v7", "@v2.0.0-rc1")), [])
+
+    def test_the_stable_branch_passes_for_a_toolchain(self):
+        # The rust-toolchain action's stable branch is how a toolchain is
+        # named without an explicit input.
+        self.assertEqual(errors_for(GOOD), [])
+        self.assertEqual(
+            errors_for(GOOD.replace("actions/checkout@v7", "dtolnay/rust-toolchain@stable")),
+            [],
+        )
+
+    def test_the_stable_branch_fails_for_another_action(self):
+        self.assertTrue(errors_for(GOOD.replace("@v7", "@stable")))
+
+    def test_a_local_action_passes(self):
+        self.assertEqual(errors_for(GOOD), [])
 
     def test_docker_tag_fails_digest_passes(self):
         self.assertTrue(errors_for(GOOD + "      - uses: docker://alpine:3.20\n"))
@@ -61,6 +89,7 @@ class CheckWorkflows(unittest.TestCase):
         self.assertTrue(errors_for(GOOD.replace("on: [push]", "on: [push, pull_request_target]")))
         self.assertTrue(errors_for(GOOD.replace("on: [push]", "on:\n  pull_request_target:")))
 
+
 class Trivyignore(unittest.TestCase):
     """Every ignored finding has to expire."""
 
@@ -81,6 +110,7 @@ class Trivyignore(unittest.TestCase):
 
     def test_comments_are_ignored(self):
         self.assertEqual(self.errors_for("# just a comment\n"), [])
+
 
 if __name__ == "__main__":
     unittest.main()

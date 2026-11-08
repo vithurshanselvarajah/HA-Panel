@@ -4,25 +4,42 @@ The workflows in this repository follow four rules. They are enforced by
 `tools/check_workflows.py`, which runs in CI and fails the build on a
 violation, so a rule that is not checked is a rule that is not a rule.
 
-## Actions are pinned by commit SHA
+## Actions name a version
 
-An action is never referred to by a tag or a branch.
+An action is referred to by a version tag, never by a branch and never by
+a commit SHA.
 
 ```yaml
 # Right.
-- uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-# Wrong: the tag can be moved.
 - uses: actions/checkout@v7
+- uses: actions/setup-node@v7
+- uses: github/codeql-action/analyze@v4
 
-# Wrong: the branch can be moved, and the comment does not pin anything.
-- uses: actions/checkout@v7 # 3d3c42e5aac5ba805825da76410c181273ba90b1
+# Wrong: a branch moves, and the build changes with no commit.
+- uses: actions/checkout@master
+
+# Wrong: a SHA is not a version, and the action it names does not know
+# what it is supposed to install.
+- uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 ```
 
-The tag goes in a comment after the SHA. The comment is what tells a
-reader which release the SHA is, and what a dependabot bump will move to.
+A version tag can be a major line or a full version: `v7`, `v4.39.3`,
+`v2.0.0-rc1`.
 
-A container image is pinned by digest, the same way.
+### The one exception
+
+`dtolnay/rust-toolchain` is named by a branch, because the branch is how
+it takes a toolchain:
+
+```yaml
+- uses: dtolnay/rust-toolchain@stable
+```
+
+The `stable` branch installs the current stable Rust. The action's `v1`
+tag, by contrast, requires the toolchain as an explicit input, so
+`@v1` on its own does not work.
+
+Every other action must name a version.
 
 ## Runners name a release
 
